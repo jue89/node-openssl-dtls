@@ -213,8 +213,8 @@ public:
 		tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
 		Nan::SetPrototypeMethod(tpl, "handlePacket", handlePacket); // clientKey, packet
+		Nan::SetPrototypeMethod(tpl, "send", send); // clientKey, payload
 		// Nan::SetPrototypeMethod(tpl, "getClientCert", getClientCert); // clientKey -> lookup via hash map
-		// Nan::SetPrototypeMethod(tpl, "send", send); // clientKey, payload
 
 		constructor().Reset(Nan::GetFunction(tpl).ToLocalChecked());
 		Nan::Set(target, Nan::New("Server").ToLocalChecked(),
@@ -287,6 +287,7 @@ private:
 	void sendData(SSL * ssl) {
 		// Check whether data is waiting for be sent
 		BIO * wbio = SSL_get_wbio(ssl);
+		DEBUGLOG("PENDING %d\n", BIO_ctrl_pending(wbio));
 		if (BIO_ctrl_pending(wbio) == 0) return;
 
 		// Fetch peer identifier
@@ -380,6 +381,24 @@ private:
 			DEBUGLOG("Left connections: %lu\n", obj->connections.size());
 			obj->sendEvent(&peer, "remove", NULL, 0);
 		}
+	}
+
+	static NAN_METHOD(send) {
+		v8::String::Utf8Value peerStr(info[0]->ToString());
+		std::string peer = std::string(*peerStr);
+		Server* obj = Nan::ObjectWrap::Unwrap<Server>(info.Holder());
+		v8::Local<v8::Object> buffer = info[1]->ToObject();
+
+		// Make sure peer exists
+		if (obj->connections.find(peer) == obj->connections.end()) return;
+
+		SSL * ssl = obj->connections[peer];
+		int rc = SSL_write(ssl, node::Buffer::Data(buffer), node::Buffer::Length(buffer));
+		DEBUGLOG("Sent %d bytes to %s\n", rc, peer.c_str());
+		// TODO: Check whether write was successful! Otherwise data will be lost.
+
+		// Call write callback
+		obj->sendData(ssl);
 	}
 
 	static inline Nan::Persistent<v8::Function> & constructor() {
