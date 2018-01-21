@@ -46,6 +46,15 @@ function Server (opts) {
 	// Create new socket or take the provided one
 	const socket = opts.socket || dgram.createSocket({ type: 'udp6' });
 
+	// Calc the correct verify mode
+	let verifyMode = 0;
+	if (opts.requestCert) {
+		verifyMode = 1;
+		if (opts.rejectUnauthorized) {
+			verifyMode = 2;
+		}
+	}
+
 	// Event listeners for events created by openSSL
 	const onEvent = (peerStr, eventName, data) => {
 		switch (eventName) {
@@ -78,7 +87,7 @@ function Server (opts) {
 		opts.key,
 		opts.cert,
 		opts.ca,
-		undefined, // Request client certificate
+		verifyMode,
 		opts.ciphers || '', // Ciphers
 		onEvent,
 		onData

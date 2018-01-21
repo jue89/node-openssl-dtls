@@ -100,6 +100,18 @@ final:
 	return rc;
 }
 
+static void setVerify(SSL_CTX * ctx, int verifyLevel) {
+	int verifyMode;
+
+	switch (verifyLevel) {
+		case 0: verifyMode = SSL_VERIFY_NONE; break;
+		case 1: verifyMode = SSL_VERIFY_PEER; break;
+		case 2: verifyMode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT; break;
+	}
+
+	SSL_CTX_set_verify(ctx, verifyMode, NULL);
+}
+
 static int sslFromCtx(SSL_CTX * ctx, SSL ** ssl) {
 	int rc = 1;
 	BIO * rbio;
@@ -228,7 +240,7 @@ private:
 	SSL *ssl;
 	std::map<std::string, SSL*> connections;
 
-	explicit Server(BIO *pkey, BIO *cert, BIO *ca, BIO *clica) : ctx(NULL), ssl(NULL) {
+	explicit Server(BIO *pkey, BIO *cert, BIO *ca, int verifyLevel) : ctx(NULL), ssl(NULL) {
 		int rc;
 
 		// New DTLS1.2 context
@@ -246,7 +258,17 @@ private:
 		rc = SSL_CTX_check_private_key(this->ctx);
 		if (!rc) throwGlobalSSLError();
 		// - Read CAs
-		// TODO
+		if (ca) {
+			X509_STORE* caStore = SSL_CTX_get_cert_store(this->ctx);
+			while (X509 * cert = PEM_read_bio_X509(ca, NULL, noPasswordCallback, NULL)) {
+				X509_STORE_add_cert(caStore, cert);
+				SSL_CTX_add_client_CA(this->ctx, cert);
+				X509_free(cert);
+			}
+		}
+		// - Set handling of peer certificates
+		setVerify(this->ctx, verifyLevel);
+		//
 		// - Generate ECDHE key
 		// TODO
 		// - Set ciphers
@@ -266,10 +288,10 @@ private:
 		BIO *pkey = arg2bio(NULL, info, 0);
 		BIO *cert = arg2bio(NULL, info, 1);
 		BIO *ca = arg2bio(NULL, info, 2);
-		BIO *clica = arg2bio(NULL, info, 3);
+		int verifyLevel = (info[3]->ToInteger())->Value();
 
 		// Create new SSL context
-		Server *obj = new Server(pkey, cert, ca, clica);
+		Server *obj = new Server(pkey, cert, ca, verifyLevel);
 		obj->cbEvent.Reset(info[5].As<v8::Function>());
 		obj->cbWrite.Reset(info[6].As<v8::Function>());
 
@@ -277,7 +299,6 @@ private:
 		BIO_free(pkey);
 		BIO_free(cert);
 		BIO_free(ca);
-		BIO_free(clica);
 
 		// Return handle to instance
 		obj->Wrap(info.This());
@@ -287,7 +308,7 @@ private:
 	void sendData(SSL * ssl) {
 		// Check whether data is waiting for be sent
 		BIO * wbio = SSL_get_wbio(ssl);
-		DEBUGLOG("PENDING %d\n", BIO_ctrl_pending(wbio));
+		DEBUGLOG("PENDING %zu\n", BIO_ctrl_pending(wbio));
 		if (BIO_ctrl_pending(wbio) == 0) return;
 
 		// Fetch peer identifier
