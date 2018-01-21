@@ -1,0 +1,18 @@
+{
+  "name": "openssl-dtls",
+  "version": "0.0.0",
+  "description": "Wrapper for OpenSSL DTLS1.2 Server",
+  "main": "index.js",
+  "author": "Jue <me@jue.yt>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jue89/node-openssl-dtls.git"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "happiness": "^10.0.2"
+  },
+  "dependencies": {
+    "nan": "^2.8.0"
+  }
+}
