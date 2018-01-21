@@ -226,7 +226,7 @@ public:
 
 		Nan::SetPrototypeMethod(tpl, "handlePacket", handlePacket); // clientKey, packet
 		Nan::SetPrototypeMethod(tpl, "send", send); // clientKey, payload
-		// Nan::SetPrototypeMethod(tpl, "getClientCert", getClientCert); // clientKey -> lookup via hash map
+		Nan::SetPrototypeMethod(tpl, "getPeerCert", getPeerCert); // clientKey
 
 		constructor().Reset(Nan::GetFunction(tpl).ToLocalChecked());
 		Nan::Set(target, Nan::New("Server").ToLocalChecked(),
@@ -420,6 +420,36 @@ private:
 
 		// Call write callback
 		obj->sendData(ssl);
+	}
+
+	static NAN_METHOD(getPeerCert) {
+		v8::String::Utf8Value peerStr(info[0]->ToString());
+		std::string peer = std::string(*peerStr);
+		Server* obj = Nan::ObjectWrap::Unwrap<Server>(info.Holder());
+
+		// Make sure peer exists
+		if (obj->connections.find(peer) == obj->connections.end()) return;
+
+		// Get peers certificate chain
+		SSL * ssl = obj->connections[peer];
+		STACK_OF(X509) * chain = SSL_get_peer_cert_chain(ssl);
+		if (chain == NULL) Nan::ThrowError("Cannot get peer certificate chain");
+
+		// Convert chain into PEM format
+		BIO * pem = BIO_new(BIO_s_mem());
+		for (int i = 0; i < sk_X509_num(chain); i++) {
+			X509 * cert = sk_X509_value(chain, i);
+			PEM_write_bio_X509(pem, cert);
+		}
+
+		// Return pem data
+		char data[4096];
+		int n = BIO_read(pem, data, sizeof(data));
+		BIO_free(pem);
+
+		// Return buffer
+		Nan::MaybeLocal<v8::Object> jsData = Nan::NewBuffer(data, n);
+		info.GetReturnValue().Set(jsData.ToLocalChecked());
 	}
 
 	static inline Nan::Persistent<v8::Function> & constructor() {

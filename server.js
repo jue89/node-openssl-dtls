@@ -1,3 +1,5 @@
+'use strict';
+
 const events = require('events');
 const dgram = require('dgram');
 const util = require('util');
@@ -35,6 +37,10 @@ Peer.prototype.address = function () {
 Peer.prototype.send = function (message) {
 	console.log(this.server.backend);
 	this.server.backend.send(this.peerStr, message);
+};
+
+Peer.prototype.getCertChain = function () {
+	return Buffer.from(this.server.backend.getPeerCert(this.peerStr));
 };
 
 function Server (opts) {
