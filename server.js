@@ -88,7 +88,15 @@ function Server (opts) {
 	// Listener for encrypted data from openSSL
 	const onData = (peerStr, packet) => {
 		const peer = string2peer(peerStr);
-		socket.send(Buffer.from(packet), 0, packet.length, peer.port, peer.address);
+		const mtu = 1280;
+		let remaining = packet.length;
+		let offset = 0;
+		while (remaining) {
+			const length = remaining > mtu ? mtu : remaining;
+			socket.send(Buffer.from(packet), offset, length, peer.port, peer.address);
+			remaining -= length;
+			offset += length;
+		}
 	};
 
 	this.backend = new dtls.Server(
