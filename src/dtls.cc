@@ -375,12 +375,14 @@ private:
 
 		// Depending on the candidate's state we call the right function
 		if (!SSL_is_init_finished(candidate)) {
+		again:
 			int rc = SSL_do_handshake(candidate);
 			if (rc == 2) {
 				// We recieved a valid cookie! -> Create a new context
 				obj->connections.insert(std::pair<std::string, SSL*>(peer, candidate));
 				sslFromCtx(obj->ctx, &obj->ssl);
 				obj->sendEvent(&peer, "handshake", NULL, 0);
+				goto again;
 			} else if (rc == 1) {
 				obj->sendEvent(&peer, "connected", NULL, 0);
 			} else if (SSL_get_error(candidate, rc) == SSL_ERROR_SSL) {
