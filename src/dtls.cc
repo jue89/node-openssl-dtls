@@ -100,6 +100,44 @@ final:
 	return rc;
 }
 
+static int readCACerts(SSL_CTX * ctx, BIO * ca) {
+	int rc = 1;
+	X509_STORE * caStore;
+	X509_LOOKUP * lu;
+	STACK_OF(X509_INFO) * caInfo;
+
+	// Empty CA -> skip
+	if (!ca) goto final;
+
+	caStore = SSL_CTX_get_cert_store(ctx);
+
+	// Add lookup method
+	lu = X509_STORE_add_lookup(caStore, X509_LOOKUP_file());
+	if (lu == NULL) {
+		rc = 0;
+		goto final;
+	}
+
+	// Add CA certs to cert store
+	caInfo = PEM_X509_INFO_read_bio(ca, NULL, noPasswordCallback, NULL);
+	for (int i = 0; i < sk_X509_INFO_num(caInfo); i++) {
+		X509_INFO *part = sk_X509_INFO_value(caInfo, i);
+		if (part->x509) {
+			DEBUGLOG("Adding CA cert: %s\n", part->x509->name);
+			X509_STORE_add_cert(lu->store_ctx, part->x509);
+			SSL_CTX_add_client_CA(ctx, part->x509);
+		}
+		if (part->crl) {
+			DEBUGLOG("Adding CRL\n");
+			X509_STORE_add_crl(lu->store_ctx, part->crl);
+		}
+	}
+	sk_X509_INFO_pop_free(caInfo, X509_INFO_free);
+
+final:
+	return rc;
+}
+
 static void setVerify(SSL_CTX * ctx, int verifyLevel) {
 	int verifyMode;
 
@@ -264,14 +302,8 @@ private:
 		rc = SSL_CTX_check_private_key(this->ctx);
 		if (!rc) throwGlobalSSLError();
 		// - Read CAs
-		if (ca) {
-			X509_STORE* caStore = SSL_CTX_get_cert_store(this->ctx);
-			while (X509 * cert = PEM_read_bio_X509(ca, NULL, noPasswordCallback, NULL)) {
-				X509_STORE_add_cert(caStore, cert);
-				SSL_CTX_add_client_CA(this->ctx, cert);
-				X509_free(cert);
-			}
-		}
+		rc = readCACerts(this->ctx, ca);
+		if (!rc) throwGlobalSSLError();
 		// - Set handling of peer certificates
 		setVerify(this->ctx, verifyLevel);
 		// - Generate ECDHE key
