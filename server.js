@@ -80,6 +80,8 @@ function Server (opts) {
 			case 'remove':
 				delete this.peers[peerStr];
 				break;
+			case 'error':
+				this.emit('error', data.toString(), string2peer(peerStr));
 		}
 	};
 

@@ -268,7 +268,6 @@ private:
 		}
 		// - Set handling of peer certificates
 		setVerify(this->ctx, verifyLevel);
-		//
 		// - Generate ECDHE key
 		// TODO
 		// - Set ciphers
@@ -308,7 +307,6 @@ private:
 	void sendData(SSL * ssl) {
 		// Check whether data is waiting for be sent
 		BIO * wbio = SSL_get_wbio(ssl);
-		DEBUGLOG("PENDING %zu\n", BIO_ctrl_pending(wbio));
 		if (BIO_ctrl_pending(wbio) == 0) return;
 
 		// Fetch peer identifier
@@ -317,6 +315,7 @@ private:
 		// Read output data
 		char packet[4096];
 		int n = BIO_read(wbio, packet, sizeof(packet));
+		DEBUGLOG("OUT %d\n", n);
 
 		// Call send callback
 		Nan::MaybeLocal<v8::Object> jsPacket = Nan::NewBuffer(packet, n);
@@ -377,6 +376,10 @@ private:
 				obj->sendEvent(&peer, "handshake", NULL, 0);
 			} else if (rc == 1) {
 				obj->sendEvent(&peer, "connected", NULL, 0);
+			} else if (SSL_get_error(candidate, rc) == SSL_ERROR_SSL) {
+				char errStr[256];
+				ERR_error_string_n(ERR_get_error(), errStr, sizeof(errStr));
+				obj->sendEvent(&peer, "error", errStr, strlen(errStr));
 			}
 		} else {
 			char buffer[4096];
@@ -394,8 +397,10 @@ private:
 		// Call write callback
 		obj->sendData(candidate);
 
+		if (candidate == obj->ssl) return;
+
 		// If we sent shutdown event to connected client, clear all related data
-		if (candidate != obj->ssl && SSL_get_shutdown(candidate) & SSL_SENT_SHUTDOWN) {
+		if ((SSL_get_shutdown(candidate) & SSL_SENT_SHUTDOWN) || (SSL_get_state(candidate) == SSL_ST_ERR)) {
 			DEBUGLOG("Removing friend %s\n", peer.c_str());
 			SSL_free(candidate);
 			obj->connections.erase(peer);
