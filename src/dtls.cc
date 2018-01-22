@@ -169,7 +169,7 @@ static int generateECDHEKey(SSL_CTX * ctx) {
 	return 1;
 }
 
-static int sslFromCtx(SSL_CTX * ctx, SSL ** ssl) {
+static int sslFromCtx(SSL_CTX * ctx, SSL ** ssl, int mtu) {
 	int rc = 1;
 	BIO * rbio;
 	BIO * wbio;
@@ -200,9 +200,10 @@ static int sslFromCtx(SSL_CTX * ctx, SSL ** ssl) {
 	// Bring SSL context into accept state (i.e. server)
 	SSL_set_accept_state(*ssl);
 
-	// Set MTU --> TODO Set proper MTU!
+	// Set MTU
 	SSL_set_options(*ssl, SSL_OP_NO_QUERY_MTU);
-	DTLS_set_link_mtu(*ssl, 1280);
+	DTLS_set_link_mtu(*ssl, mtu);
+	DEBUGLOG("MTU %d\n", mtu);
 
 final:
 	return rc;
@@ -296,8 +297,9 @@ private:
 	SSL_CTX *ctx;
 	SSL *ssl;
 	std::map<std::string, SSL*> connections;
+	int mtu;
 
-	explicit Server(BIO *pkey, BIO *cert, BIO *ca, int verifyLevel) : ctx(NULL), ssl(NULL) {
+	explicit Server(BIO *pkey, BIO *cert, BIO *ca, int verifyLevel, int mtu) : ctx(NULL), ssl(NULL), mtu(mtu) {
 		int rc;
 
 		// New DTLS1.2 context
@@ -328,7 +330,8 @@ private:
 		SSL_CTX_set_cookie_generate_cb(this->ctx, generateCookie);
 		SSL_CTX_set_cookie_verify_cb(this->ctx, verifyCookie);
 
-		rc = sslFromCtx(this->ctx, &this->ssl);
+		// Create first SSL context
+		rc = sslFromCtx(this->ctx, &this->ssl, this->mtu);
 		if (!rc) throwGlobalSSLError();
 	}
 
@@ -340,9 +343,10 @@ private:
 		BIO *cert = arg2bio(NULL, info, 1);
 		BIO *ca = arg2bio(NULL, info, 2);
 		int verifyLevel = (info[3]->ToInteger())->Value();
+		int mtu = (info[7]->ToInteger())->Value();
 
 		// Create new SSL context
-		Server *obj = new Server(pkey, cert, ca, verifyLevel);
+		Server *obj = new Server(pkey, cert, ca, verifyLevel, mtu);
 		obj->cbEvent.Reset(info[5].As<v8::Function>());
 		obj->cbWrite.Reset(info[6].As<v8::Function>());
 
@@ -425,7 +429,7 @@ private:
 			if (rc == 2) {
 				// We recieved a valid cookie! -> Create a new context
 				obj->connections.insert(std::pair<std::string, SSL*>(peer, candidate));
-				sslFromCtx(obj->ctx, &obj->ssl);
+				sslFromCtx(obj->ctx, &obj->ssl, obj->mtu);
 				obj->sendEvent(&peer, "handshake", NULL, 0);
 				goto again;
 			} else if (rc == 1) {

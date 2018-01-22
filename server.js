@@ -35,7 +35,7 @@ Peer.prototype.address = function () {
 };
 
 Peer.prototype.send = function (message) {
-	console.log(this.server.backend);
+	if (!(message instanceof Buffer)) throw new Error('message must be an instance of Buffer');
 	this.server.backend.send(this.peerStr, message);
 };
 
@@ -45,6 +45,10 @@ Peer.prototype.getCertChain = function () {
 
 function Server (opts) {
 	events.EventEmitter.call(this);
+
+	// Store MTU of the datagram.
+	// Default MTU: 1500B ETH MTU - 40B IPv6 Header - 8B UDP Header = 1452B
+	this.mtu = opts.mtu || 1452;
 
 	// Store for connected peers
 	this.peers = {};
@@ -86,14 +90,30 @@ function Server (opts) {
 	};
 
 	// Listener for encrypted data from openSSL
+	const getRecordLength = (buffer, offset) => buffer.readUInt16BE(offset + 11) + 13;
 	const onData = (peerStr, packet) => {
+		packet = Buffer.from(packet);
 		const peer = string2peer(peerStr);
-		const mtu = 1280;
 		let remaining = packet.length;
 		let offset = 0;
-		while (remaining) {
-			const length = remaining > mtu ? mtu : remaining;
-			socket.send(Buffer.from(packet), offset, length, peer.port, peer.address);
+		while (remaining > 0) {
+			// Collect as many records as possible fitting in one datagram.
+			// Always include the first record! If it exceeds the MTU try to transmit
+			// it anyway. Maybe some IP fragmentation magic can handle this.
+			let length = getRecordLength(packet, offset);
+			while (remaining > length) {
+				// Read the length in byte of the next record
+				let tmp = getRecordLength(packet, offset + length);
+				if (length + tmp <= this.mtu) {
+					// If the records fits into MTU, add its length to the datagram length.
+					length += tmp;
+				} else {
+					// Break if the next record wouldn't fit in the current datagram.
+					break;
+				}
+			}
+			// Send the datagram
+			socket.send(packet, offset, length, peer.port, peer.address);
 			remaining -= length;
 			offset += length;
 		}
@@ -106,7 +126,8 @@ function Server (opts) {
 		verifyMode,
 		opts.ciphers || '', // Ciphers
 		onEvent,
-		onData
+		onData,
+		this.mtu
 	);
 
 	// Forward incoming packages to openSSL
