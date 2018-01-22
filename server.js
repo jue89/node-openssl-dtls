@@ -124,7 +124,7 @@ function Server (opts) {
 		opts.cert,
 		opts.ca,
 		verifyMode,
-		opts.ciphers || '', // Ciphers
+		opts.ciphers,
 		onEvent,
 		onData,
 		this.mtu

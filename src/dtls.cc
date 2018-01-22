@@ -299,7 +299,11 @@ private:
 	std::map<std::string, SSL*> connections;
 	int mtu;
 
-	explicit Server(BIO *pkey, BIO *cert, BIO *ca, int verifyLevel, int mtu) : ctx(NULL), ssl(NULL), mtu(mtu) {
+	explicit Server(BIO *pkey, BIO *cert, BIO *ca, int verifyLevel, std::string * ciphers, int mtu) :
+		ctx(NULL),
+		ssl(NULL),
+		mtu(mtu)
+	{
 		int rc;
 
 		// New DTLS1.2 context
@@ -325,6 +329,11 @@ private:
 		rc = generateECDHEKey(this->ctx);
 		if (!rc) throwGlobalSSLError();
 		// - Set ciphers
+		if (ciphers->size()) {
+			DEBUGLOG("Ciphers: %s\n", ciphers->c_str());
+			rc = SSL_CTX_set_cipher_list(this->ctx, ciphers->c_str());
+			if (!rc) throwGlobalSSLError();
+		}
 		// TODO
 		// - Register cookie factory
 		SSL_CTX_set_cookie_generate_cb(this->ctx, generateCookie);
@@ -343,10 +352,15 @@ private:
 		BIO *cert = arg2bio(NULL, info, 1);
 		BIO *ca = arg2bio(NULL, info, 2);
 		int verifyLevel = (info[3]->ToInteger())->Value();
+		std::string ciphers = std::string();
+		if (!info[4]->IsUndefined()) {
+			v8::String::Utf8Value ciphersStr(info[4]->ToString());
+			ciphers.assign(*ciphersStr);
+		}
 		int mtu = (info[7]->ToInteger())->Value();
 
 		// Create new SSL context
-		Server *obj = new Server(pkey, cert, ca, verifyLevel, mtu);
+		Server *obj = new Server(pkey, cert, ca, verifyLevel, &ciphers, mtu);
 		obj->cbEvent.Reset(info[5].As<v8::Function>());
 		obj->cbWrite.Reset(info[6].As<v8::Function>());
 
