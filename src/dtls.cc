@@ -138,16 +138,29 @@ final:
 	return rc;
 }
 
-static void setVerify(SSL_CTX * ctx, int verifyLevel) {
-	int verifyMode;
+static int verifyCallback(int ok, X509_STORE_CTX *ctx) {
+#ifdef DEBUG
+	int err = X509_STORE_CTX_get_error(ctx);
+	int depth = X509_STORE_CTX_get_error_depth(ctx);
 
+	DEBUGLOG("depth=%d ", depth);
+	DEBUGLOG("verify error:num=%d:%s\n", err, X509_verify_cert_error_string(err));
+	DEBUGLOG("verify return:%d\n", ok);
+#endif
+	return ok;
+}
+
+static void setVerify(SSL_CTX * ctx, int verifyLevel) {
+	int verifyMode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+
+	DEBUGLOG("Verify level: %d\n", verifyLevel);
 	switch (verifyLevel) {
 		case 0: verifyMode = SSL_VERIFY_NONE; break;
 		case 1: verifyMode = SSL_VERIFY_PEER; break;
 		case 2: verifyMode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT; break;
 	}
 
-	SSL_CTX_set_verify(ctx, verifyMode, NULL);
+	SSL_CTX_set_verify(ctx, verifyMode, verifyCallback);
 }
 
 static int generateECDHEKey(SSL_CTX * ctx) {
@@ -491,6 +504,7 @@ private:
 		// Return pem data
 		char data[4096];
 		int n = BIO_read(pem, data, sizeof(data));
+		if (n < 0) n = 0;
 		BIO_free(pem);
 
 		// Return buffer
