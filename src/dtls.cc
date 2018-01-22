@@ -112,6 +112,12 @@ static void setVerify(SSL_CTX * ctx, int verifyLevel) {
 	SSL_CTX_set_verify(ctx, verifyMode, NULL);
 }
 
+static int generateECDHEKey(SSL_CTX * ctx) {
+	EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+	if (!SSL_CTX_set_tmp_ecdh(ctx, ecdh)) return 0;
+	return 1;
+}
+
 static int sslFromCtx(SSL_CTX * ctx, SSL ** ssl) {
 	int rc = 1;
 	BIO * rbio;
@@ -269,7 +275,8 @@ private:
 		// - Set handling of peer certificates
 		setVerify(this->ctx, verifyLevel);
 		// - Generate ECDHE key
-		// TODO
+		rc = generateECDHEKey(this->ctx);
+		if (!rc) throwGlobalSSLError();
 		// - Set ciphers
 		// TODO
 		// - Register cookie factory
