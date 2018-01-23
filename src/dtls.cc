@@ -285,6 +285,7 @@ public:
 		Nan::SetPrototypeMethod(tpl, "handlePacket", handlePacket); // clientKey, packet
 		Nan::SetPrototypeMethod(tpl, "send", send); // clientKey, payload
 		Nan::SetPrototypeMethod(tpl, "getPeerCert", getPeerCert); // clientKey
+		Nan::SetPrototypeMethod(tpl, "shutdown", shutdown); // clientKey
 
 		constructor().Reset(Nan::GetFunction(tpl).ToLocalChecked());
 		Nan::Set(target, Nan::New("Server").ToLocalChecked(),
@@ -392,6 +393,17 @@ private:
 		Nan::MaybeLocal<v8::String> jsPeer = Nan::New<v8::String>(peer->c_str());
 		v8::Local<v8::Value> argv[] = {jsPeer.ToLocalChecked(), jsPacket.ToLocalChecked()};
 		this->cbWrite.Call(2, argv);
+
+		// If the current ssl context is not the listen context, and
+		// we sent shutdown event to connected client, clear all related data.
+		if (ssl == this->ssl) return;
+		if ((SSL_get_shutdown(ssl) & SSL_SENT_SHUTDOWN) || (SSL_get_state(ssl) == SSL_ST_ERR)) {
+			DEBUGLOG("Removing friend %s\n", peer->c_str());
+			SSL_free(ssl);
+			this->connections.erase(*peer);
+			DEBUGLOG("Left connections: %lu\n", this->connections.size());
+			this->sendEvent(peer, "remove", NULL, 0);
+		}
 	}
 
 	void sendEvent(std::string * peer, const char * event, char * data, int n) {
@@ -468,17 +480,6 @@ private:
 
 		// Call write callback
 		obj->sendData(candidate);
-
-		if (candidate == obj->ssl) return;
-
-		// If we sent shutdown event to connected client, clear all related data
-		if ((SSL_get_shutdown(candidate) & SSL_SENT_SHUTDOWN) || (SSL_get_state(candidate) == SSL_ST_ERR)) {
-			DEBUGLOG("Removing friend %s\n", peer.c_str());
-			SSL_free(candidate);
-			obj->connections.erase(peer);
-			DEBUGLOG("Left connections: %lu\n", obj->connections.size());
-			obj->sendEvent(&peer, "remove", NULL, 0);
-		}
 	}
 
 	static NAN_METHOD(send) {
@@ -532,6 +533,23 @@ private:
 		// Return buffer
 		Nan::MaybeLocal<v8::Object> jsData = Nan::NewBuffer(data, n);
 		info.GetReturnValue().Set(jsData.ToLocalChecked());
+	}
+
+	static NAN_METHOD(shutdown) {
+		v8::String::Utf8Value peerStr(info[0]->ToString());
+		std::string peer = std::string(*peerStr);
+		Server* obj = Nan::ObjectWrap::Unwrap<Server>(info.Holder());
+
+		// Make sure peer exists
+		if (obj->connections.find(peer) == obj->connections.end()) return;
+
+		// Send shutdown event to stated peer
+		SSL * ssl = obj->connections[peer];
+		SSL_shutdown(ssl);
+		obj->sendEvent(&peer, "shutdown", NULL, 0);
+
+		// Call write callback
+		obj->sendData(ssl);
 	}
 
 	static inline Nan::Persistent<v8::Function> & constructor() {
