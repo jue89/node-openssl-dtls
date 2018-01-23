@@ -9,7 +9,7 @@ const knownPeers = {};
 
 const string2peer = (peer) => {
 	if (knownPeers[peer] === undefined) {
-		const tmp = peer.split(' ');
+		const tmp = peer.split('_');
 		if (tmp.length !== 3) return;
 		knownPeers[peer] = {
 			family: tmp[0],
@@ -20,7 +20,7 @@ const string2peer = (peer) => {
 	return knownPeers[peer];
 };
 
-const peer2string = (peer) => `${peer.family} ${peer.address} ${peer.port}`;
+const peer2string = (peer) => `${peer.family}_${peer.address}_${peer.port}`;
 
 function Peer (server, peerStr) {
 	events.EventEmitter.call(this);
