@@ -507,13 +507,17 @@ private:
 		// Make sure peer exists
 		if (obj->connections.find(peer) == obj->connections.end()) return;
 
-		// Get peers certificate chain
+		// Get peers certificate and chain certificates
 		SSL * ssl = obj->connections[peer];
+		X509 * cert = SSL_get_peer_certificate(ssl);
+		if (cert == NULL) Nan::ThrowError("Cannot get peer certificate");
 		STACK_OF(X509) * chain = SSL_get_peer_cert_chain(ssl);
 		if (chain == NULL) Nan::ThrowError("Cannot get peer certificate chain");
 
-		// Convert chain into PEM format
+		// Convert certificates into PEM format
+		DEBUGLOG("Certs: %d\n", sk_X509_num(chain));
 		BIO * pem = BIO_new(BIO_s_mem());
+		PEM_write_bio_X509(pem, cert);
 		for (int i = 0; i < sk_X509_num(chain); i++) {
 			X509 * cert = sk_X509_value(chain, i);
 			PEM_write_bio_X509(pem, cert);
