@@ -403,6 +403,7 @@ private:
 			this->connections.erase(*peer);
 			DEBUGLOG("Left connections: %lu\n", this->connections.size());
 			this->sendEvent(peer, "remove", NULL, 0);
+			delete peer;
 		}
 	}
 
