@@ -89,7 +89,7 @@ function Server (opts) {
 				delete this.peers[peerStr];
 				break;
 			case 'error':
-				this.emit('error', data.toString(), string2peer(peerStr));
+				this.emit('error', new Error(data.toString()), string2peer(peerStr));
 		}
 	};
 
@@ -137,8 +137,11 @@ function Server (opts) {
 	// Forward incoming packages to openSSL
 	socket.on('message', (packet, peer) => this.backend.handlePacket(peer2string(peer), packet));
 
-	// Listen on given port
-	socket.bind(opts.port);
+	// Expose bind method
+	this.bind = function () {
+		const args = Array.prototype.slice.call(arguments);
+		socket.bind.apply(socket, args);
+	};
 }
 
 util.inherits(Server, events.EventEmitter);
