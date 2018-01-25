@@ -77,7 +77,7 @@ function Server (opts) {
 				break;
 			case 'connected':
 				this.peers[peerStr] = new Peer(this, peerStr);
-				setImmediate(() => this.emit('secureConnection', this.peers[peerStr]));
+				process.nextTick(() => this.emit('secureConnection', this.peers[peerStr]));
 				break;
 			case 'message':
 				this.peers[peerStr].emit('message', Buffer.from(data));

@@ -384,8 +384,8 @@ private:
 		std::string * peer = (std::string*) SSL_get_ex_data(ssl, peerIdx);
 
 		// Read output data
-		char packet[4096];
-		int n = BIO_read(wbio, packet, sizeof(packet));
+		char * packet = (char*) malloc(4096);
+		int n = BIO_read(wbio, packet, 4096);
 		DEBUGLOG("OUT %d\n", n);
 
 		// Call send callback
@@ -416,7 +416,9 @@ private:
 			};
 			this->cbEvent.Call(2, argv);
 		} else {
-			Nan::MaybeLocal<v8::Object> jsData = Nan::NewBuffer(data, n);
+			char * bufferData = (char*) malloc(n);
+			memcpy(bufferData, data, n);
+			Nan::MaybeLocal<v8::Object> jsData = Nan::NewBuffer(bufferData, n);
 			v8::Local<v8::Value> argv[] = {
 				jsPeer.ToLocalChecked(),
 				jsEvent.ToLocalChecked(),
@@ -525,8 +527,8 @@ private:
 		}
 
 		// Return pem data
-		char data[4096];
-		int n = BIO_read(pem, data, sizeof(data));
+		char * data = (char*) malloc(4096);;
+		int n = BIO_read(pem, data, 4096);
 		if (n < 0) n = 0;
 		BIO_free(pem);
 
