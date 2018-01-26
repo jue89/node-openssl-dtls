@@ -5,22 +5,16 @@ const dgram = require('dgram');
 const util = require('util');
 const dtls = require('./build/Release/dtls.node');
 
-const knownPeers = {};
-
 const string2peer = (peer) => {
-	if (knownPeers[peer] === undefined) {
-		const tmp = peer.split('_');
-		if (tmp.length !== 3) return;
-		knownPeers[peer] = {
-			family: tmp[0],
-			address: tmp[1],
-			port: parseInt(tmp[2])
-		};
-	}
-	return knownPeers[peer];
+	const tmp = peer.split(' ');
+	if (tmp.length !== 2) return;
+	return {
+		address: tmp[0],
+		port: parseInt(tmp[1])
+	};
 };
 
-const peer2string = (peer) => `${peer.family}_${peer.address}_${peer.port}`;
+const peer2string = (peer) => `${peer.address} ${peer.port}`;
 
 function Peer (server, peerStr) {
 	events.EventEmitter.call(this);
