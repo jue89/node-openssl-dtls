@@ -17,7 +17,6 @@
 #define COOKIE_SECRET_LENGTH 16
 static unsigned char cookie_secret[COOKIE_SECRET_LENGTH];
 int peerIdx;
-struct sockaddr dummy;
 
 // Convert buffer arguments to BIO
 static BIO * arg2bio(BIO * bio, Nan::NAN_METHOD_ARGS_TYPE args, int i) {
@@ -511,29 +510,27 @@ private:
 		// Make sure peer exists
 		if (obj->connections.find(peer) == obj->connections.end()) return;
 
-		// Get peers certificate and chain certificates
-		SSL * ssl = obj->connections[peer];
-		X509 * cert = SSL_get_peer_certificate(ssl);
-		if (cert == NULL) Nan::ThrowError("Cannot get peer certificate");
-		STACK_OF(X509) * chain = SSL_get_peer_cert_chain(ssl);
-		if (chain == NULL) Nan::ThrowError("Cannot get peer certificate chain");
-
-		// Convert certificates into PEM format
-		DEBUGLOG("Certs: %d\n", sk_X509_num(chain));
 		BIO * pem = BIO_new(BIO_s_mem());
-		PEM_write_bio_X509(pem, cert);
-		for (int i = 0; i < sk_X509_num(chain); i++) {
-			X509 * cert = sk_X509_value(chain, i);
-			PEM_write_bio_X509(pem, cert);
+		SSL * ssl = obj->connections[peer];
+
+		// Get peer's certificate
+		X509 * cert = SSL_get_peer_certificate(ssl);
+		if (cert != NULL) PEM_write_bio_X509(pem, cert);
+
+		// Get peer's remaining certificate chain
+		STACK_OF(X509) * chain = SSL_get_peer_cert_chain(ssl);
+		if (chain != NULL) {
+			for (int i = 0; i < sk_X509_num(chain); i++) {
+				X509 * cert = sk_X509_value(chain, i);
+				PEM_write_bio_X509(pem, cert);
+			}
 		}
 
 		// Return pem data
-		char * data = (char*) malloc(4096);;
+		char * data = (char*) malloc(4096);
 		int n = BIO_read(pem, data, 4096);
 		if (n < 0) n = 0;
 		BIO_free(pem);
-
-		// Return buffer
 		Nan::MaybeLocal<v8::Object> jsData = Nan::NewBuffer(data, n);
 		info.GetReturnValue().Set(jsData.ToLocalChecked());
 	}
