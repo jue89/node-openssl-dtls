@@ -52,7 +52,7 @@ function Server (opts) {
 	this.peers = {};
 
 	// Create new socket or take the provided one
-	const socket = opts.socket || dgram.createSocket({ type: 'udp6' });
+	this.socket = opts.socket || dgram.createSocket({ type: 'udp6' });
 
 	// Calc the correct verify mode
 	let verifyMode = 0;
@@ -111,7 +111,7 @@ function Server (opts) {
 				}
 			}
 			// Send the datagram
-			socket.send(packet, offset, length, peer.port, peer.address);
+			this.socket.send(packet, offset, length, peer.port, peer.address);
 			remaining -= length;
 			offset += length;
 		}
@@ -129,15 +129,31 @@ function Server (opts) {
 	);
 
 	// Forward incoming packages to openSSL
-	socket.on('message', (packet, peer) => this.backend.handlePacket(peer2string(peer), packet));
+	this.acceptDatagrams = true;
+	this.socket.on('message', (packet, peer) => {
+		if (!this.acceptDatagrams) return;
+		this.backend.handlePacket(peer2string(peer), packet);
+	});
 
 	// Expose bind method
+	const that = this;
 	this.bind = function () {
 		const args = Array.prototype.slice.call(arguments);
-		socket.bind.apply(socket, args);
+		that.socket.bind.apply(that.socket, args);
 	};
 }
 
 util.inherits(Server, events.EventEmitter);
+
+Server.prototype.close = function (cb) {
+	// "Unbind" message callback
+	this.acceptDatagrams = false;
+
+	// Cleanup DTLS context
+	this.backend.destroy();
+
+	// Close socket
+	process.nextTick(() => this.socket.close(cb));
+};
 
 module.exports = Server;

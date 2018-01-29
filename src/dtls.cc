@@ -285,6 +285,7 @@ public:
 		Nan::SetPrototypeMethod(tpl, "send", send); // clientKey, payload
 		Nan::SetPrototypeMethod(tpl, "getPeerCert", getPeerCert); // clientKey
 		Nan::SetPrototypeMethod(tpl, "shutdown", shutdown); // clientKey
+		Nan::SetPrototypeMethod(tpl, "destroy", destroy);
 
 		constructor().Reset(Nan::GetFunction(tpl).ToLocalChecked());
 		Nan::Set(target, Nan::New("Server").ToLocalChecked(),
@@ -334,7 +335,6 @@ private:
 			rc = SSL_CTX_set_cipher_list(this->ctx, ciphers->c_str());
 			if (!rc) throwGlobalSSLError();
 		}
-		// TODO
 		// - Register cookie factory
 		SSL_CTX_set_cookie_generate_cb(this->ctx, generateCookie);
 		SSL_CTX_set_cookie_verify_cb(this->ctx, verifyCookie);
@@ -406,7 +406,7 @@ private:
 		}
 	}
 
-	void sendEvent(std::string * peer, const char * event, char * data, int n) {
+	void sendEvent(const std::string * peer, const char * event, char * data, int n) {
 		Nan::MaybeLocal<v8::String> jsPeer = Nan::New<v8::String>(peer->c_str());
 		Nan::MaybeLocal<v8::String> jsEvent = Nan::New<v8::String>(event);
 		if (data == NULL) {
@@ -550,6 +550,24 @@ private:
 
 		// Call write callback
 		obj->sendData(ssl);
+	}
+
+	static NAN_METHOD(destroy) {
+		Server* obj = Nan::ObjectWrap::Unwrap<Server>(info.Holder());
+
+		// Close all existing connections
+		for (std::map<std::string, SSL*>::iterator it = obj->connections.begin(); it != obj->connections.end(); ++it) {
+			DEBUGLOG("Shutdown %s\n", it->first.c_str());
+			SSL_shutdown(it->second);
+			obj->sendEvent(&it->first, "shutdown", NULL, 0);
+			obj->sendData(it->second);
+		}
+
+		// Close listening context
+		SSL_free(obj->ssl);
+
+		// Close SSL context
+		SSL_CTX_free(obj->ctx);
 	}
 
 	static inline Nan::Persistent<v8::Function> & constructor() {
