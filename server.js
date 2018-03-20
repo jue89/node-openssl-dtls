@@ -38,7 +38,7 @@ Peer.prototype.getCertChain = function () {
 };
 
 Peer.prototype.end = function () {
-	this.server.backend.shutdown(this.peerStr);
+	setImmediate(() => this.server.backend.shutdown(this.peerStr));
 };
 
 function Server (opts) {
