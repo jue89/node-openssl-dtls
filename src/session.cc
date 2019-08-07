@@ -4,6 +4,8 @@
 #include <node_buffer.h>
 #include <openssl/err.h>
 
+int exSessionIdx;
+
 NAN_MODULE_INIT(Session::Init) {
 	v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
 	tpl->SetClassName(Nan::New("Session").ToLocalChecked());
@@ -14,6 +16,9 @@ NAN_MODULE_INIT(Session::Init) {
 
 	constructor.Reset(Nan::GetFunction(tpl).ToLocalChecked());
 	Nan::Set(target, Nan::New("Session").ToLocalChecked(), Nan::GetFunction(tpl).ToLocalChecked());
+
+	// Register new ex data index for Session instance pointer
+	exSessionIdx = SSL_get_ex_new_index(0, NULL, NULL, NULL, NULL);
 }
 
 NAN_METHOD(Session::New) {
@@ -53,6 +58,12 @@ Session::Session(
 	cbError(NULL),
 	cbShutdown(NULL)
 {
+	// Check cookie length
+	if (cookieLen > DTLS1_COOKIE_LENGTH) {
+		Nan::ThrowError("Cookie is too long");
+		return;
+	}
+
 	// Create a new SSL session
 	this->handle = SSL_new(ctx);
 	if (this->handle == NULL) goto error;
@@ -72,6 +83,9 @@ Session::Session(
 	this->cbConnected = new Nan::Callback(cbConnected);
 	this->cbError = new Nan::Callback(cbError);
 	this->cbShutdown = new Nan::Callback(cbShutdown);
+
+	// Store pointer inside the SSL session
+	SSL_set_ex_data(this->handle, exSessionIdx, this);
 
 	return;
 

@@ -34,4 +34,6 @@ private:
 	static Nan::Persistent<v8::Function> constructor;
 };
 
+extern int exSessionIdx;
+
 #endif

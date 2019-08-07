@@ -1,5 +1,6 @@
 #include "context.h"
 #include "helper.h"
+#include "session.h"
 #include <openssl/err.h>
 
 NAN_MODULE_INIT(Context::Init) {
@@ -22,6 +23,28 @@ NAN_METHOD(Context::New) {
 	info.GetReturnValue().Set(info.This());
 }
 
+static int generateCookie(SSL *ssl, unsigned char *cookie, unsigned int *cookieLen) {
+	Session * sess = (Session *) SSL_get_ex_data(ssl, exSessionIdx);
+
+	// Copy session cookie into context
+	*cookieLen = sess->cookieLen;
+	memcpy(cookie, sess->cookie, sess->cookieLen);
+
+	return 1;
+}
+
+static int verifyCookie(SSL *ssl, unsigned char *cookie, unsigned int cookieLen) {
+	Session * sess = (Session *) SSL_get_ex_data(ssl, exSessionIdx);
+
+	// Check for the right length
+	if (cookieLen != sess->cookieLen) return 0;
+
+	// Check for the right cookie
+	if (memcpy(cookie, sess->cookie, cookieLen) != 0) return 0;
+
+	return 1;
+}
+
 Context::Context(const SSL_METHOD * meth) {
 	int rc;
 
@@ -33,7 +56,9 @@ Context::Context(const SSL_METHOD * meth) {
 	rc = SSL_CTX_set_tmp_ecdh(this->handle, EC_KEY_new_by_curve_name(NID_X9_62_prime256v1));
 	if (!rc) goto error;
 
-	// TODO: Set cookie callbacks
+	// Set cookie callbacks
+	SSL_CTX_set_cookie_generate_cb(this->handle, generateCookie);
+	SSL_CTX_set_cookie_verify_cb(this->handle, verifyCookie);
 
 	return;
 
