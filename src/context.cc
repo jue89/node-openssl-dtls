@@ -49,13 +49,17 @@ static int verifyCookie(SSL *ssl, unsigned char *cookie, unsigned int cookieLen)
 
 Context::Context(const SSL_METHOD * meth) {
 	int rc;
+	EC_KEY * ecdhe;
 
 	// Create a new SSL_CTX
 	this->handle = SSL_CTX_new(meth);
 	if (this->handle == NULL) goto error;
 
 	// Create a new key pair for ECDHE
-	rc = SSL_CTX_set_tmp_ecdh(this->handle, EC_KEY_new_by_curve_name(NID_X9_62_prime256v1));
+	ecdhe = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+	rc = SSL_CTX_set_tmp_ecdh(this->handle, ecdhe);
+	EC_KEY_free(ecdhe); // SSL_CTX_set_tmp_ecdh duplicates the key ... we can remove our copy
+
 	if (!rc) goto error;
 
 	// Set cookie callbacks
@@ -94,10 +98,10 @@ NAN_METHOD(Context::setCertAndKey) {
 	Context * ctx = Nan::ObjectWrap::Unwrap<Context>(info.Holder());
 	unsigned long err;
 	int rc = 1;
-	BIO * certBio;
+	BIO * certBio = NULL;
 	X509 * cert = NULL;
 	X509 * ca = NULL;
-	BIO * keyBio;
+	BIO * keyBio = NULL;
 	EVP_PKEY * key = NULL;
 
 	// Clear all errors not made in this function
@@ -155,6 +159,8 @@ NAN_METHOD(Context::setCertAndKey) {
 final:
 	if (cert) X509_free(cert);
 	if (key) EVP_PKEY_free(key);
+	if (certBio) BIO_free(certBio);
+	if (keyBio) BIO_free(keyBio);
 	if (!rc) throwGlobalSSLError();
 }
 
@@ -165,7 +171,7 @@ NAN_METHOD(Context::setCA) {
 	X509_STORE * caStore;
 	X509_LOOKUP * lu;
 	STACK_OF(X509_INFO) * caInfo;
-	BIO * caBio;
+	BIO * caBio = NULL;
 
 	caStore = SSL_CTX_get_cert_store(ctx->handle);
 	lu = X509_STORE_add_lookup(caStore, X509_LOOKUP_file());
@@ -189,6 +195,7 @@ NAN_METHOD(Context::setCA) {
 	sk_X509_INFO_pop_free(caInfo, X509_INFO_free);
 
 final:
+	if (caBio) BIO_free(caBio);
 	if (!rc) throwGlobalSSLError();
 }
 
