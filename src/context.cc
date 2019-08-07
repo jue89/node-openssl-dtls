@@ -3,6 +3,8 @@
 #include "session.h"
 #include <openssl/err.h>
 
+Nan::Persistent<v8::Function> Context::constructor;
+
 NAN_MODULE_INIT(Context::Init) {
 	v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
 	tpl->SetClassName(Nan::New("Context").ToLocalChecked());
@@ -40,7 +42,7 @@ static int verifyCookie(SSL *ssl, unsigned char *cookie, unsigned int cookieLen)
 	if (cookieLen != sess->cookieLen) return 0;
 
 	// Check for the right cookie
-	if (memcpy(cookie, sess->cookie, cookieLen) != 0) return 0;
+	if (memcmp(cookie, sess->cookie, cookieLen) != 0) return 0;
 
 	return 1;
 }

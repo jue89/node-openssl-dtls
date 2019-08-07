@@ -6,6 +6,8 @@
 
 int exSessionIdx;
 
+Nan::Persistent<v8::Function> Session::constructor;
+
 NAN_MODULE_INIT(Session::Init) {
 	v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
 	tpl->SetClassName(Nan::New("Session").ToLocalChecked());
@@ -58,6 +60,9 @@ Session::Session(
 	cbError(NULL),
 	cbShutdown(NULL)
 {
+	BIO * rbio;
+	BIO * wbio;
+
 	// Check cookie length
 	if (cookieLen > DTLS1_COOKIE_LENGTH) {
 		Nan::ThrowError("Cookie is too long");
@@ -68,10 +73,20 @@ Session::Session(
 	this->handle = SSL_new(ctx);
 	if (this->handle == NULL) goto error;
 
+	// Set BIOs
+	rbio = BIO_new(BIO_s_mem());
+	BIO_set_mem_eof_return(rbio, -1);
+	wbio = BIO_new(BIO_s_mem());
+	BIO_set_mem_eof_return(wbio, -1);
+	SSL_set_bio(this->handle, rbio, wbio);
+
 	// Store cookie
 	this->cookie = (char*) malloc(cookieLen);
 	memcpy(this->cookie, cookie, cookieLen);
 	this->cookieLen = cookieLen;
+
+	// Make sure to exchange cookies before intialising the handshake
+	SSL_set_options(this->handle, SSL_OP_COOKIE_EXCHANGE);
 
 	// Set MTU
 	SSL_set_options(this->handle, SSL_OP_NO_QUERY_MTU);
@@ -86,6 +101,9 @@ Session::Session(
 
 	// Store pointer inside the SSL session
 	SSL_set_ex_data(this->handle, exSessionIdx, this);
+
+	// Bring SSL context into accept state (i.e. server)
+	SSL_set_accept_state(this->handle);
 
 	return;
 
