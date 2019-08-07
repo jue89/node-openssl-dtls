@@ -16,6 +16,7 @@ NAN_MODULE_INIT(Session::Init) {
 	Nan::SetPrototypeMethod(tpl, "handler", handler);
 	Nan::SetPrototypeMethod(tpl, "close", close);
 	Nan::SetPrototypeMethod(tpl, "getPeerCert", getPeerCert);
+	Nan::SetPrototypeMethod(tpl, "send", send);
 
 	constructor.Reset(Nan::GetFunction(tpl).ToLocalChecked());
 	Nan::Set(target, Nan::New("Session").ToLocalChecked(), Nan::GetFunction(tpl).ToLocalChecked());
@@ -143,6 +144,14 @@ void Session::sendData() {
 	}
 }
 
+void Session::emitError() {
+	char errStr[256];
+	ERR_error_string_n(ERR_get_error(), errStr, sizeof(errStr));
+	Nan::MaybeLocal<v8::String> errLocalMaybe = Nan::New<v8::String>(errStr);
+	v8::Local<v8::Value> errLocal = errLocalMaybe.ToLocalChecked();
+	Nan::Call(this->cbError->GetFunction(), Nan::GetCurrentContext()->Global(), 1, &errLocal);
+}
+
 NAN_METHOD(Session::handler) {
 	Session * sess = Nan::ObjectWrap::Unwrap<Session>(info.Holder());
 	int rc;
@@ -163,11 +172,7 @@ NAN_METHOD(Session::handler) {
 			Nan::Call(sess->cbConnected->GetFunction(), Nan::GetCurrentContext()->Global(), 0, NULL);
 		} else if (SSL_get_error(sess->handle, rc) == SSL_ERROR_SSL) {
 			// An error occured
-			char errStr[256];
-			ERR_error_string_n(ERR_get_error(), errStr, sizeof(errStr));
-			Nan::MaybeLocal<v8::String> errLocalMaybe = Nan::New<v8::String>(errStr);
-			v8::Local<v8::Value> errLocal = errLocalMaybe.ToLocalChecked();
-			Nan::Call(sess->cbError->GetFunction(), Nan::GetCurrentContext()->Global(), 1, &errLocal);
+			sess->emitError();
 		} else {
 			// Handshake isn't finished, yet
 			struct timeval dtlsTimeout = {0, 0};
@@ -227,4 +232,14 @@ NAN_METHOD(Session::getPeerCert) {
 	BIO_free(pem);
 	Nan::MaybeLocal<v8::Object> certChain = Nan::NewBuffer(data, n);
 	info.GetReturnValue().Set(certChain.ToLocalChecked());
+}
+
+NAN_METHOD(Session::send) {
+	Session * sess = Nan::ObjectWrap::Unwrap<Session>(info.Holder());
+	ARG_BUFFER(0, data);
+	int rc = SSL_write(sess->handle, node::Buffer::Data(data), node::Buffer::Length(data));
+	if (rc <= 0 && SSL_get_error(sess->handle, rc) == SSL_ERROR_SSL) {
+		sess->emitError();
+	}
+	sess->sendData();
 }
