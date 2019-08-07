@@ -15,6 +15,7 @@ NAN_MODULE_INIT(Session::Init) {
 
 	Nan::SetPrototypeMethod(tpl, "handler", handler);
 	Nan::SetPrototypeMethod(tpl, "close", close);
+	Nan::SetPrototypeMethod(tpl, "getPeerCert", getPeerCert);
 
 	constructor.Reset(Nan::GetFunction(tpl).ToLocalChecked());
 	Nan::Set(target, Nan::New("Session").ToLocalChecked(), Nan::GetFunction(tpl).ToLocalChecked());
@@ -200,4 +201,30 @@ NAN_METHOD(Session::close) {
 	Session * sess = Nan::ObjectWrap::Unwrap<Session>(info.Holder());
 	SSL_shutdown(sess->handle);
 	sess->sendData();
+}
+
+NAN_METHOD(Session::getPeerCert) {
+	Session * sess = Nan::ObjectWrap::Unwrap<Session>(info.Holder());
+	BIO * pem = BIO_new(BIO_s_mem());
+
+	// Get peer's certificate
+	X509 * cert = SSL_get_peer_certificate(sess->handle);
+	if (cert != NULL) PEM_write_bio_X509(pem, cert);
+
+	// Get peer's remaining certificate chain
+	STACK_OF(X509) * chain = SSL_get_peer_cert_chain(sess->handle);
+	if (chain != NULL) {
+		for (int i = 0; i < sk_X509_num(chain); i++) {
+			X509 * cert = sk_X509_value(chain, i);
+			PEM_write_bio_X509(pem, cert);
+		}
+	}
+
+	// Return pem data
+	char * data = (char*) malloc(4096);
+	int n = BIO_read(pem, data, 4096);
+	if (n < 0) n = 0;
+	BIO_free(pem);
+	Nan::MaybeLocal<v8::Object> certChain = Nan::NewBuffer(data, n);
+	info.GetReturnValue().Set(certChain.ToLocalChecked());
 }

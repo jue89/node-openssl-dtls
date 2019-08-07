@@ -29,6 +29,7 @@ private:
 	~Session();
 	void sendData();
 	static NAN_METHOD(New);
+	static NAN_METHOD(getPeerCert);
 	static NAN_METHOD(handler);
 	static NAN_METHOD(close);
 	static Nan::Persistent<v8::Function> constructor;
