@@ -4,6 +4,7 @@
 		"sources": [
 			"src/init.cc",
 			"src/helper.cc",
+			"src/bio_nancb.cc",
 			"src/context.cc",
 			"src/session.cc"
 		],

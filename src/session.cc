@@ -1,6 +1,7 @@
 #include "session.h"
 #include "context.h"
 #include "helper.h"
+#include "bio_nancb.h"
 #include <node_buffer.h>
 #include <openssl/err.h>
 
@@ -71,6 +72,13 @@ Session::Session(
 		return;
 	}
 
+	// Store callbacks
+	this->cbSend = new Nan::Callback(cbSend);
+	this->cbMessage = new Nan::Callback(cbMessage);
+	this->cbConnected = new Nan::Callback(cbConnected);
+	this->cbError = new Nan::Callback(cbError);
+	this->cbShutdown = new Nan::Callback(cbShutdown);
+
 	// Create a new SSL session
 	this->handle = SSL_new(ctx);
 	if (this->handle == NULL) goto error;
@@ -78,8 +86,8 @@ Session::Session(
 	// Set BIOs
 	rbio = BIO_new(BIO_s_mem());
 	BIO_set_mem_eof_return(rbio, -1);
-	wbio = BIO_new(BIO_s_mem());
-	BIO_set_mem_eof_return(wbio, -1);
+	wbio = BIO_new(BIO_nancb());
+	BIO_nancb_set_cb(wbio, this->cbSend);
 	SSL_set_bio(this->handle, rbio, wbio);
 
 	// Store cookie
@@ -93,13 +101,6 @@ Session::Session(
 	// Set MTU
 	SSL_set_options(this->handle, SSL_OP_NO_QUERY_MTU);
 	DTLS_set_link_mtu(this->handle, mtu);
-
-	// Store callbacks
-	this->cbSend = new Nan::Callback(cbSend);
-	this->cbMessage = new Nan::Callback(cbMessage);
-	this->cbConnected = new Nan::Callback(cbConnected);
-	this->cbError = new Nan::Callback(cbError);
-	this->cbShutdown = new Nan::Callback(cbShutdown);
 
 	// Store pointer inside the SSL session
 	SSL_set_ex_data(this->handle, exSessionIdx, this);
@@ -122,26 +123,6 @@ Session::~Session() {
 	if (this->cbConnected) delete this->cbConnected;
 	if (this->cbError) delete this->cbError;
 	if (this->cbShutdown) delete this->cbShutdown;
-}
-
-void Session::sendData() {
-	// Check whether data is waiting for be sent
-	BIO * wbio = SSL_get_wbio(this->handle);
-	if (BIO_ctrl_pending(wbio) == 0) return;
-
-	// Read output data
-	char * packet = (char*) malloc(4096);
-	int n = BIO_read(wbio, packet, 4096);
-
-	// Call send callback
-	Nan::MaybeLocal<v8::Object> packetLocalMaybe = Nan::NewBuffer(packet, n);
-	v8::Local<v8::Value> packetLocal = packetLocalMaybe.ToLocalChecked();
-	Nan::Call(this->cbSend->GetFunction(), Nan::GetCurrentContext()->Global(), 1, &packetLocal);
-
-	// Check if the connection has been shut down and call callback
-	if ((SSL_get_shutdown(this->handle) & SSL_SENT_SHUTDOWN) || (SSL_get_state(this->handle) == SSL_ST_ERR)) {
-		Nan::Call(this->cbShutdown->GetFunction(), Nan::GetCurrentContext()->Global(), 0, NULL);
-	}
 }
 
 void Session::emitError() {
@@ -195,8 +176,10 @@ NAN_METHOD(Session::handler) {
 		}
 	}
 
-	// Send data that might be pending
-	sess->sendData();
+	// Check if the connection has been shut down
+	if ((SSL_get_shutdown(sess->handle) & SSL_SENT_SHUTDOWN) || (SSL_get_state(sess->handle) == SSL_ST_ERR)) {
+		Nan::Call(sess->cbShutdown->GetFunction(), Nan::GetCurrentContext()->Global(), 0, NULL);
+	}
 
 	// Return amount of millisconds of the retransmit timer
 	info.GetReturnValue().Set(Nan::New(ret));
@@ -205,7 +188,7 @@ NAN_METHOD(Session::handler) {
 NAN_METHOD(Session::close) {
 	Session * sess = Nan::ObjectWrap::Unwrap<Session>(info.Holder());
 	SSL_shutdown(sess->handle);
-	sess->sendData();
+	Nan::Call(sess->cbShutdown->GetFunction(), Nan::GetCurrentContext()->Global(), 0, NULL);
 }
 
 NAN_METHOD(Session::getPeerCert) {
@@ -241,5 +224,4 @@ NAN_METHOD(Session::send) {
 	if (rc <= 0 && SSL_get_error(sess->handle, rc) == SSL_ERROR_SSL) {
 		sess->emitError();
 	}
-	sess->sendData();
 }
