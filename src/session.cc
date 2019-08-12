@@ -163,9 +163,15 @@ NAN_METHOD(Session::handler) {
 	} else {
 		char buffer[4096];
 		int rc = SSL_read(sess->handle, buffer, sizeof(buffer));
-		if (rc <= 0 && SSL_get_error(sess->handle, rc) == SSL_ERROR_ZERO_RETURN) {
-			// Disconnected!
-			SSL_shutdown(sess->handle);
+		if (rc <= 0) {
+			int err = SSL_get_error(sess->handle, rc);
+			if (err == SSL_ERROR_ZERO_RETURN) {
+				// Disconnected!
+				Nan::Call(sess->cbShutdown->GetFunction(), Nan::GetCurrentContext()->Global(), 0, NULL);
+			} else if (err == SSL_ERROR_SSL) {
+				// An error occured
+				sess->emitError();
+			}
 		} else if (rc > 0) {
 			// Data received from remote side
 			char * data = (char*) malloc(rc);
@@ -174,11 +180,6 @@ NAN_METHOD(Session::handler) {
 			v8::Local<v8::Value> dataLocal = dataLocalMaybe.ToLocalChecked();
 			Nan::Call(sess->cbMessage->GetFunction(), Nan::GetCurrentContext()->Global(), 1, &dataLocal);
 		}
-	}
-
-	// Check if the connection has been shut down
-	if ((SSL_get_shutdown(sess->handle) & SSL_SENT_SHUTDOWN) || (SSL_get_state(sess->handle) == SSL_ST_ERR)) {
-		Nan::Call(sess->cbShutdown->GetFunction(), Nan::GetCurrentContext()->Global(), 0, NULL);
 	}
 
 	// Return amount of millisconds of the retransmit timer
