@@ -187,8 +187,13 @@ NAN_METHOD(Session::handler) {
 
 NAN_METHOD(Session::close) {
 	Session * sess = Nan::ObjectWrap::Unwrap<Session>(info.Holder());
+
+	// Check if session has been shut down or a fatal error orrucred
+	// In this case we are not allowed to call SSL_shutdown()
+	if (SSL_get_shutdown(sess->handle) & SSL_SENT_SHUTDOWN) return;
+	if (SSL_get_state(sess->handle) == SSL_ST_ERR) return;
+
 	SSL_shutdown(sess->handle);
-	Nan::Call(sess->cbShutdown->GetFunction(), Nan::GetCurrentContext()->Global(), 0, NULL);
 }
 
 NAN_METHOD(Session::getPeerCert) {
