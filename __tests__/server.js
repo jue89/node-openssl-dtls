@@ -201,7 +201,7 @@ test('create new peer', () => {
 });
 
 test('send packets to exisiting peer', () => {
-	const s = new Server({
+	new Server({
 		key: Buffer.alloc(0),
 		cert: Buffer.alloc(0)
 	});
