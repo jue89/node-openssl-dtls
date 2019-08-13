@@ -139,10 +139,12 @@ NAN_METHOD(Session::handler) {
 	uint32_t ret = 0;
 
 	// Write data to BIO if a datagram has been received
-	Nan::MaybeLocal<v8::Object> dataBufMaybe = Nan::To<v8::Object>(info[0]);
-	if (!dataBufMaybe.IsEmpty()) {
-		v8::Local<v8::Object> dataBuf = dataBufMaybe.ToLocalChecked();
-		bufferToBio(SSL_get_rbio(sess->handle), dataBuf);
+	if (info.Length() > 0) {
+		Nan::MaybeLocal<v8::Object> dataBufMaybe = Nan::To<v8::Object>(info[0]);
+		if (!dataBufMaybe.IsEmpty()) {
+			v8::Local<v8::Object> dataBuf = dataBufMaybe.ToLocalChecked();
+			bufferToBio(SSL_get_rbio(sess->handle), dataBuf);
+		}
 	}
 
 	// Depending on the candidate's state we call the right function

@@ -48,7 +48,7 @@ class Peer extends EventEmitter {
 		// Clear timer
 		if (this.toResend) clearTimeout(this.toResend);
 
-		const toResend = this.session.handler(data);
+		const toResend = (data) ? this.session.handler(data) : this.session.handler();
 
 		// The handler returns the amount of remaining
 		// millisconds until a retransmit shall happen.
