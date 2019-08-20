@@ -137,6 +137,22 @@ test('clear resend timer', () => {
 	expect(mockDTLS.Session.mock.instances[0].handler.mock.calls.length).toBe(2);
 });
 
+test('suppress retransmissions', () => {
+	const to = 123;
+	const socket = mockDgram.createSocket();
+	const s = new Peer({ctx: {}, mtu: 1, cookieSecretPRF: {fetch: () => {}}, socket, suppressRetransmitsQuirk: true}, {});
+	mockDTLS.Session.mock.instances[0].handler.mockImplementation(() => {
+		mockDTLS.Session.mock.instances[0].onSend(Buffer.alloc(0));
+		return to;
+	});
+	s._handler(Buffer.alloc(0));
+	expect(socket.send.mock.calls.length).toBe(1);
+	jest.advanceTimersByTime(to);
+	expect(socket.send.mock.calls.length).toBe(1);
+	s._handler(Buffer.alloc(0));
+	expect(socket.send.mock.calls.length).toBe(2);
+});
+
 test('setup initial destroy timer', () => {
 	const handshakeTimeout = 123;
 	const connectionTimeout = 456;

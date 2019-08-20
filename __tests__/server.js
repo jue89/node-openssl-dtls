@@ -115,6 +115,16 @@ test('use own socket', () => {
 	expect(mockDgram.createSocket.mock.calls.length).toBe(0);
 });
 
+test('set retransmit supression quirk', () => {
+	const suppressRetransmitsQuirk = {};
+	const s = new Server({
+		key: Buffer.alloc(0),
+		cert: Buffer.alloc(0),
+		suppressRetransmitsQuirk
+	});
+	expect(s.suppressRetransmitsQuirk).toBe(suppressRetransmitsQuirk);
+});
+
 test('create SSL context', () => {
 	const s = new Server({
 		key: Buffer.alloc(0),

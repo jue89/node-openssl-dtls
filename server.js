@@ -18,6 +18,7 @@ class Server extends EventEmitter {
 		this.mtu = opts.mtu || 1452;
 		this.handshakeTimeout = opts.handshakeTimeout || 30000;
 		this.connectionTimeout = opts.connectionTimeout || 600000;
+		this.suppressRetransmitsQuirk = opts.suppressRetransmitsQuirk || false;
 
 		// Convert verify level
 		let verifyLevel = 0;
