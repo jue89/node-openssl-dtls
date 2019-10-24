@@ -1,18 +1,37 @@
 {
   "name": "openssl-dtls",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Bindings for OpenSSL DTLS1.2",
   "main": "index.js",
   "author": "Jue <me@jue.yt>",
+  "scripts": {
+    "test": "happiness && jest --verbose",
+    "watch": "jest --watchAll"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/jue89/node-openssl-dtls.git"
   },
   "license": "MIT",
   "devDependencies": {
-    "happiness": "^10.0.2"
+    "happiness": "^10.0.2",
+    "jest": "^24.8.0"
   },
   "dependencies": {
     "nan": "^2.8.0"
+  },
+  "happiness": {
+    "globals": [
+      "jest",
+      "describe",
+      "test",
+      "expect",
+      "beforeEach",
+      "afterEach"
+    ]
+  },
+  "jest": {
+    "automock": false,
+    "clearMocks": true
   }
 }
