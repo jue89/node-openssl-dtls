@@ -20,7 +20,7 @@ NAN_MODULE_INIT(Context::Init) {
 }
 
 NAN_METHOD(Context::New) {
-	Context * ctx = new Context(DTLSv1_2_server_method());
+	Context * ctx = new Context(DTLS_server_method());
 	ctx->Wrap(info.This());
 	info.GetReturnValue().Set(info.This());
 }
@@ -35,7 +35,7 @@ static int generateCookie(SSL *ssl, unsigned char *cookie, unsigned int *cookieL
 	return 1;
 }
 
-static int verifyCookie(SSL *ssl, unsigned char *cookie, unsigned int cookieLen) {
+static int verifyCookie(SSL *ssl, const unsigned char *cookie, unsigned int cookieLen) {
 	Session * sess = (Session *) SSL_get_ex_data(ssl, exSessionIdx);
 
 	// Check for the right length
@@ -167,36 +167,27 @@ final:
 NAN_METHOD(Context::setCA) {
 	ARG_BUFFER(0, caBuf)
 	Context * ctx = Nan::ObjectWrap::Unwrap<Context>(info.Holder());
-	int rc = 1;
 	X509_STORE * caStore;
-	X509_LOOKUP * lu;
 	STACK_OF(X509_INFO) * caInfo;
 	BIO * caBio = NULL;
 
 	caStore = SSL_CTX_get_cert_store(ctx->handle);
-	lu = X509_STORE_add_lookup(caStore, X509_LOOKUP_file());
-	if (lu == NULL) {
-		rc = 0;
-		goto final;
-	}
 
 	caBio = bufferToBio(NULL, caBuf);
 	caInfo = PEM_X509_INFO_read_bio(caBio, NULL, noPasswordCallback, NULL);
 	for (int i = 0; i < sk_X509_INFO_num(caInfo); i++) {
 		X509_INFO * part = sk_X509_INFO_value(caInfo, i);
 		if (part->x509) {
-			X509_STORE_add_cert(lu->store_ctx, part->x509);
+			X509_STORE_add_cert(caStore, part->x509);
 			SSL_CTX_add_client_CA(ctx->handle, part->x509);
 		}
 		if (part->crl) {
-			X509_STORE_add_crl(lu->store_ctx, part->crl);
+			X509_STORE_add_crl(caStore, part->crl);
 		}
 	}
 	sk_X509_INFO_pop_free(caInfo, X509_INFO_free);
 
-final:
-	if (caBio) BIO_free(caBio);
-	if (!rc) throwGlobalSSLError();
+	BIO_free(caBio);
 }
 
 static int verifyCallback(int ok, X509_STORE_CTX *ctx) {

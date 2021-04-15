@@ -194,7 +194,8 @@ NAN_METHOD(Session::close) {
 	// Check if session has been shut down or a fatal error orrucred
 	// In this case we are not allowed to call SSL_shutdown()
 	if (SSL_get_shutdown(sess->handle) & SSL_SENT_SHUTDOWN) return;
-	if (SSL_get_state(sess->handle) == SSL_ST_ERR) return;
+	// FIXME: Calling SSL_shutdown is not allowed in an error state
+	//if (SSL_get_state(sess->handle) == SSL_ST_ERR) return;
 
 	SSL_shutdown(sess->handle);
 }
