@@ -26,7 +26,7 @@ class Peer extends EventEmitter {
 
 		const onError = (err) => {
 			this.emit('error', new Error(err));
-			this.end();
+			delete this.session;
 		};
 
 		const onShutdown = () => {

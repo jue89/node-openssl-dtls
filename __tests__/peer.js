@@ -92,7 +92,8 @@ test('emit error', () => {
 	mockDTLS.Session.mock.instances[0].onError(message);
 	expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
 	expect(onError.mock.calls[0][0].message).toBe(message);
-	expect(s.end.mock.calls.length).toBe(1);
+	expect(s.end.mock.calls.length).toBe(0);
+	expect(s.session).toBeUndefined();
 });
 
 test('emit close', () => {
