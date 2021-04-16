@@ -26,11 +26,16 @@ class Peer extends EventEmitter {
 
 		const onError = (err) => {
 			this.emit('error', new Error(err));
-			this.end();
+			delete this.session;
 		};
 
 		const onShutdown = () => {
 			this.end();
+		};
+
+		const getRetransmitTimeout = (last) => {
+			const next = server.getRetransmitTimeout(last);
+			return next;
 		};
 
 		this.session = new DTLS.Session(
@@ -41,7 +46,8 @@ class Peer extends EventEmitter {
 			onMessage,
 			onConnected,
 			onError,
-			onShutdown
+			onShutdown,
+			getRetransmitTimeout
 		);
 
 		this._resetDestroyTimer(server.handshakeTimeout);

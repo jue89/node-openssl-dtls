@@ -1,8 +1,7 @@
 # OpenSSL DTLS1.2 Bindings
 
 This module enables your application to listen for incoming DTLS1.2 connections.
-It uses OpenSSL 1.0.2, which is shipped with Node.js 6 and 8.
-Compatibilty with latest Node.js versions will be achieved in future versions of this module. Sry!
+It uses OpenSSL 1.1.1, which is shipped with Node.js 10 and newer.
 
 ## API
 
@@ -22,6 +21,7 @@ Spawns a new server. `opts` is an object:
  * `socket`: Instances of `dgram.Socket`. By default a new `'udp6'` dgram socket will be created.
  * `handshakeTimeout`: Duration in millisconds how long a DTLS handshake can take until it will be aborted and the state is removed. *Default: 30 * 1000ms*
  * `connectionTimeout`: Duration in millisconds how long a DTLS connection can stay established without any received data until the connection is closed. *Default: 10 * 60 * 1000ms*
+ * `retransmitTimeout`: Number or Function. A number states the initial retransmit timeout in microseconds that is doubled in every cycle. Function: `(lastTimeout) => nextTimeout`, wheres `lastTimeout` ist zero in the first cycle. Default: `1000000`.
 
 ### Class: Server
 

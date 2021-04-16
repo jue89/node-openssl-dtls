@@ -277,3 +277,20 @@ test('close server', () => {
 	expect(mockPeer.mock.instances[0].end.mock.calls.length).toBe(1);
 	expect(s.ctx).toBeUndefined();
 });
+
+test('setup retransmit timeout', () => {
+	const s0 = new Server({key: Buffer.alloc(0), cert: Buffer.alloc(0)});
+	expect(s0.getRetransmitTimeout(0)).toBe(1000000);
+	expect(s0.getRetransmitTimeout(1000000)).toBe(2000000);
+
+	const s1 = new Server({retransmitTimeout: 100, key: Buffer.alloc(0), cert: Buffer.alloc(0)});
+	expect(s1.getRetransmitTimeout(0)).toBe(100);
+	expect(s1.getRetransmitTimeout(100)).toBe(200);
+
+	const retransmitTimeout = jest.fn(() => 123);
+	const s2 = new Server({retransmitTimeout, key: Buffer.alloc(0), cert: Buffer.alloc(0)});
+	expect(s2.getRetransmitTimeout(0)).toBe(123);
+	expect(retransmitTimeout.mock.calls[0][0]).toBe(0);
+	expect(s2.getRetransmitTimeout(100)).toBe(123);
+	expect(retransmitTimeout.mock.calls[1][0]).toBe(100);
+});

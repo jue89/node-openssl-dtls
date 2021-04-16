@@ -19,6 +19,11 @@ class Server extends EventEmitter {
 		this.handshakeTimeout = opts.handshakeTimeout || 30000;
 		this.connectionTimeout = opts.connectionTimeout || 600000;
 		this.suppressRetransmitsQuirk = opts.suppressRetransmitsQuirk || false;
+		this.getRetransmitTimeout = opts.retransmitTimeout || 1000000; // 1s by default
+		if (typeof this.getRetransmitTimeout === 'number') {
+			const firstTimeout = this.getRetransmitTimeout;
+			this.getRetransmitTimeout = (last) => (last) ? last * 2 : firstTimeout;
+		}
 
 		// Convert verify level
 		let verifyLevel = 0;

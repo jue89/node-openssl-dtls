@@ -1,0 +1,5 @@
+[ v3_ca ]
+basicConstraints = CA:true
+
+[ v3_device ]
+basicConstraints = CA:false
