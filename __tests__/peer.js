@@ -15,12 +15,15 @@ test('create new session', () => {
 	const ctx = {};
 	const mtu = 123;
 	const cookieSecretPRF = { fetch: jest.fn(() => Buffer.alloc(0)) };
-	const s = new Peer({ctx, mtu, cookieSecretPRF}, {});
+	const getRetransmitTimeout = jest.fn(() => 123);
+	const s = new Peer({ctx, mtu, cookieSecretPRF, getRetransmitTimeout}, {});
 	expect(cookieSecretPRF.fetch.mock.calls[0][0]).toBe(16);
 	expect(mockDTLS.Session.mock.calls[0][0]).toBe(ctx);
 	expect(mockDTLS.Session.mock.calls[0][1]).toBe(cookieSecretPRF.fetch.mock.results[0].value);
 	expect(mockDTLS.Session.mock.calls[0][2]).toBe(mtu);
 	expect(s.session).toBe(mockDTLS.Session.mock.instances[0]);
+	expect(mockDTLS.Session.mock.calls[0][8](456)).toBe(123);
+	expect(getRetransmitTimeout.mock.calls[0][0]).toBe(456)
 });
 
 test('return rinfo', () => {

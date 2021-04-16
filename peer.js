@@ -33,6 +33,11 @@ class Peer extends EventEmitter {
 			this.end();
 		};
 
+		const getRetransmitTimeout = (last) => {
+			const next = server.getRetransmitTimeout(last);
+			return next;
+		};
+
 		this.session = new DTLS.Session(
 			server.ctx,
 			server.cookieSecretPRF.fetch(16),
@@ -41,7 +46,8 @@ class Peer extends EventEmitter {
 			onMessage,
 			onConnected,
 			onError,
-			onShutdown
+			onShutdown,
+			getRetransmitTimeout
 		);
 
 		this._resetDestroyTimer(server.handshakeTimeout);

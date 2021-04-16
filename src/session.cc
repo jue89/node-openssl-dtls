@@ -9,6 +9,21 @@ int exSessionIdx;
 
 Nan::Persistent<v8::Function> Session::constructor;
 
+static unsigned int timer_cb(SSL *ssl, unsigned int lastTimeout) {
+	Session * sess = (Session *) SSL_get_ex_data(ssl, exSessionIdx);
+
+	// Ask callback for next timeout
+	Nan::MaybeLocal<v8::Integer> lastTimeoutLocalMaybe = Nan::New<v8::Integer>(lastTimeout);
+	v8::Local<v8::Value> lastTimeoutLocal = lastTimeoutLocalMaybe.ToLocalChecked();
+	Nan::MaybeLocal<v8::Value> retLocalMaybe = Nan::Call(sess->cbRetransmitTimeout->GetFunction(), Nan::GetCurrentContext()->Global(), 1, &lastTimeoutLocal);
+	v8::Local<v8::Value> retLocal = retLocalMaybe.ToLocalChecked();
+	Nan::MaybeLocal<v8::Integer> nextTimeoutLocalMaybe = Nan::To<v8::Integer>(retLocal);
+	v8::Local<v8::Integer> nextTimeoutLocal = nextTimeoutLocalMaybe.ToLocalChecked();
+	unsigned int nextTimeout = nextTimeoutLocal->Value();
+
+	return nextTimeout;
+}
+
 NAN_MODULE_INIT(Session::Init) {
 	v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
 	tpl->SetClassName(Nan::New("Session").ToLocalChecked());
@@ -35,9 +50,10 @@ NAN_METHOD(Session::New) {
 	ARG_FUN(5, cbConnected);
 	ARG_FUN(6, cbError);
 	ARG_FUN(7, cbShutdown);
+	ARG_FUN(8, cbRetransmitTimeout);
 
 	Session * sess = new Session(ctx->handle, mtu, node::Buffer::Data(cookie), node::Buffer::Length(cookie),
-	                             cbSend, cbMessage, cbConnected, cbError, cbShutdown);
+	                             cbSend, cbMessage, cbConnected, cbError, cbShutdown, cbRetransmitTimeout);
 
 	sess->Wrap(info.This());
 	info.GetReturnValue().Set(info.This());
@@ -52,7 +68,8 @@ Session::Session(
 	v8::Local<v8::Function> & cbMessage,
 	v8::Local<v8::Function> & cbConnected,
 	v8::Local<v8::Function> & cbError,
-	v8::Local<v8::Function> & cbShutdown
+	v8::Local<v8::Function> & cbShutdown,
+	v8::Local<v8::Function> & cbRetransmitTimeout
 ) :
 	handle(NULL),
 	cookie(NULL),
@@ -61,7 +78,8 @@ Session::Session(
 	cbMessage(NULL),
 	cbConnected(NULL),
 	cbError(NULL),
-	cbShutdown(NULL)
+	cbShutdown(NULL),
+	cbRetransmitTimeout(NULL)
 {
 	BIO * rbio;
 	BIO * wbio;
@@ -78,6 +96,7 @@ Session::Session(
 	this->cbConnected = new Nan::Callback(cbConnected);
 	this->cbError = new Nan::Callback(cbError);
 	this->cbShutdown = new Nan::Callback(cbShutdown);
+	this->cbRetransmitTimeout = new Nan::Callback(cbRetransmitTimeout);
 
 	// Create a new SSL session
 	this->handle = SSL_new(ctx);
@@ -105,6 +124,9 @@ Session::Session(
 	// Store pointer inside the SSL session
 	SSL_set_ex_data(this->handle, exSessionIdx, this);
 
+	// Set DTLS retransmission timeout callback
+	DTLS_set_timer_cb(this->handle, timer_cb);
+
 	// Bring SSL context into accept state (i.e. server)
 	SSL_set_accept_state(this->handle);
 
@@ -123,6 +145,7 @@ Session::~Session() {
 	if (this->cbConnected) delete this->cbConnected;
 	if (this->cbError) delete this->cbError;
 	if (this->cbShutdown) delete this->cbShutdown;
+	if (this->cbRetransmitTimeout) delete this->cbRetransmitTimeout;
 }
 
 void Session::emitError() {
