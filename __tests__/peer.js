@@ -90,12 +90,13 @@ test('emit error', () => {
 	const s = new Peer({ctx: {}, mtu: 1, cookieSecretPRF: {fetch: () => {}}}, {});
 	const onError = jest.fn();
 	s.on('error', onError);
+	const onClose = jest.fn();
+	s.on('close', onClose);
 	const message = 'fckup';
-	s.end = jest.fn();
 	mockDTLS.Session.mock.instances[0].onError(message);
 	expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
 	expect(onError.mock.calls[0][0].message).toBe(message);
-	expect(s.end.mock.calls.length).toBe(0);
+	expect(onClose.mock.calls.length).toBe(1);
 	expect(s.session).toBeUndefined();
 });
 

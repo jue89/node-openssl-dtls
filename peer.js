@@ -25,8 +25,7 @@ class Peer extends EventEmitter {
 		};
 
 		const onError = (err) => {
-			this.emit('error', new Error(err));
-			delete this.session;
+			this._destory(new Error(err));
 		};
 
 		const onShutdown = () => {
@@ -86,7 +85,7 @@ class Peer extends EventEmitter {
 		return this.session.getPeerCert();
 	}
 
-	end () {
+	_destory (err) {
 		if (!this.session) return;
 
 		// Clear timer
@@ -94,10 +93,18 @@ class Peer extends EventEmitter {
 		this._resetDestroyTimer();
 
 		// Clear session
-		this.session.close();
+		if (err) {
+			this.emit('error', err);
+		} else {
+			this.session.close();
+		}
 		delete this.session;
 
 		this.emit('close');
+	}
+
+	end () {
+		this._destory();
 	}
 
 	send (message) {
