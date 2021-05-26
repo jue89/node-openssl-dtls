@@ -1,6 +1,6 @@
 {
   "name": "openssl-dtls",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Bindings for OpenSSL DTLS1.2",
   "main": "index.js",
   "author": "Jue <me@jue.yt>",
