@@ -220,7 +220,7 @@ NAN_METHOD(Session::handler) {
 		sess->emitError("Empty input data created output data. This shouldn't happen!");
 	}
 
-	// Return amount of millisconds of the retransmit timer
+	// Return amount of milliseconds of the retransmit timer
 	info.GetReturnValue().Set(Nan::New(ret));
 }
 
