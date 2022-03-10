@@ -15,10 +15,10 @@
   "license": "MIT",
   "devDependencies": {
     "happiness": "^10.0.2",
-    "jest": "^24.8.0"
+    "jest": "^27.5.1"
   },
   "dependencies": {
-    "nan": "^2.8.0"
+    "nan": "^2.15.0"
   },
   "happiness": {
     "globals": [
