@@ -164,6 +164,7 @@ NAN_METHOD(Session::handler) {
 	Session * sess = Nan::ObjectWrap::Unwrap<Session>(info.Holder());
 	int rc;
 	uint32_t ret = 0;
+	size_t inputDataLen = 0;
 
 	// Write data to BIO if a datagram has been received
 	if (info.Length() > 0) {
@@ -171,6 +172,7 @@ NAN_METHOD(Session::handler) {
 		if (!dataBufMaybe.IsEmpty()) {
 			v8::Local<v8::Object> dataBuf = dataBufMaybe.ToLocalChecked();
 			bufferToBio(SSL_get_rbio(sess->handle), dataBuf);
+			inputDataLen = node::Buffer::Length(dataBuf);
 		}
 	}
 
@@ -189,10 +191,14 @@ NAN_METHOD(Session::handler) {
 			DTLSv1_get_timeout(sess->handle, (void*) &dtlsTimeout);
 			ret = dtlsTimeout.tv_sec * 1000 + dtlsTimeout.tv_usec / 1000;
 		}
-	} else {
-		char buffer[4096];
-		int rc = SSL_read(sess->handle, buffer, sizeof(buffer));
+	} else if (inputDataLen > 0) {
+		// Decrypted data won't be larger than the input ciphertext
+		char * data = (char*) malloc(inputDataLen);
+
+		// Try to read cleartext data
+		int rc = SSL_read(sess->handle, data, inputDataLen);
 		if (rc <= 0) {
+			free(data);
 			int err = SSL_get_error(sess->handle, rc);
 			if (err == SSL_ERROR_ZERO_RETURN) {
 				// Disconnected!
@@ -201,14 +207,17 @@ NAN_METHOD(Session::handler) {
 				// An error occured
 				sess->emitError();
 			}
-		} else if (rc > 0) {
+		} else {
 			// Data received from remote side
-			char * data = (char*) malloc(rc);
-			memcpy(data, buffer, rc);
+
+			// Resize heap length to actual data size
+			data = (char*) realloc(data, rc);
 			Nan::MaybeLocal<v8::Object> dataLocalMaybe = Nan::NewBuffer(data, rc);
 			v8::Local<v8::Value> dataLocal = dataLocalMaybe.ToLocalChecked();
 			Nan::Call(sess->cbMessage->GetFunction(), Nan::GetCurrentContext()->Global(), 1, &dataLocal);
 		}
+	} else {
+		sess->emitError("Empty input data created output data. This shouldn't happen!");
 	}
 
 	// Return amount of millisconds of the retransmit timer
