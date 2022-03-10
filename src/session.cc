@@ -148,12 +148,16 @@ Session::~Session() {
 	if (this->cbRetransmitTimeout) delete this->cbRetransmitTimeout;
 }
 
-void Session::emitError() {
-	char errStr[256];
-	ERR_error_string_n(ERR_get_error(), errStr, sizeof(errStr));
+void Session::emitError(const char *errStr) {
 	Nan::MaybeLocal<v8::String> errLocalMaybe = Nan::New<v8::String>(errStr);
 	v8::Local<v8::Value> errLocal = errLocalMaybe.ToLocalChecked();
 	Nan::Call(this->cbError->GetFunction(), Nan::GetCurrentContext()->Global(), 1, &errLocal);
+}
+
+void Session::emitError() {
+	char errStr[256];
+	ERR_error_string_n(ERR_get_error(), errStr, sizeof(errStr));
+	this->emitError(errStr);
 }
 
 NAN_METHOD(Session::handler) {
