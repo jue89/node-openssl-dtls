@@ -1,7 +1,7 @@
 # OpenSSL DTLS1.2 Bindings
 
 This module enables your application to listen for incoming DTLS1.2 connections.
-It uses OpenSSL 1.1.1, which is shipped with Node.js 10 and newer.
+It uses OpenSSL 1.1.1, which is shipped with Node.js version 10 up to version 16.
 
 ## API
 
