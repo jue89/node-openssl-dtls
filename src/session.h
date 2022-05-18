@@ -29,6 +29,7 @@ private:
 	explicit Session(SSL_CTX * ctx, int64_t mtu, const char * cookie, size_t cookieLen, v8::Local<v8::Function> & cbSend, v8::Local<v8::Function> & cbMessage, v8::Local<v8::Function> & cbConnected, v8::Local<v8::Function> & cbError, v8::Local<v8::Function> & cbShutdown, v8::Local<v8::Function> & cbRetransmitTimeout);
 	~Session();
 	void emitError();
+	void emitError(const char * errStr);
 	static NAN_METHOD(New);
 	static NAN_METHOD(getPeerCert);
 	static NAN_METHOD(handler);

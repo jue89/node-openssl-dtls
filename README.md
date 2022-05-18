@@ -1,7 +1,7 @@
 # OpenSSL DTLS1.2 Bindings
 
 This module enables your application to listen for incoming DTLS1.2 connections.
-It uses OpenSSL 1.1.1, which is shipped with Node.js 10 and newer.
+It uses OpenSSL 1.1.1, which is shipped with Node.js version 10 up to version 16.
 
 ## API
 
@@ -19,9 +19,9 @@ Spawns a new server. `opts` is an object:
  * `mtu`: Number. The wire's MTU. *Default: 1500 Ethernet MTU - 40 IPv6 Header - 8 UDP Header = 1452.*
  * `ciphers`: String. Allowed ciphers. Further details: [OpenSSL Cipher List Format](https://www.openssl.org/docs/man1.0.2/apps/ciphers.html#CIPHER-LIST-FORMAT). *Optional.*
  * `socket`: Instances of `dgram.Socket`. By default a new `'udp6'` dgram socket will be created.
- * `handshakeTimeout`: Duration in millisconds how long a DTLS handshake can take until it will be aborted and the state is removed. *Default: 30 * 1000ms*
- * `connectionTimeout`: Duration in millisconds how long a DTLS connection can stay established without any received data until the connection is closed. *Default: 10 * 60 * 1000ms*
- * `retransmitTimeout`: Number or Function. A number states the initial retransmit timeout in microseconds that is doubled in every cycle. Function: `(lastTimeout) => nextTimeout`, wheres `lastTimeout` ist zero in the first cycle. Default: `1000000`.
+ * `handshakeTimeout`: Duration in milliseconds how long a DTLS handshake can take until it will be aborted and the state is removed. *Default: 30 * 1000ms*
+ * `connectionTimeout`: Duration in milliseconds how long a DTLS connection can stay established without any received data until the connection is closed. *Default: 10 * 60 * 1000ms*
+ * `retransmitTimeout`: Number or Function. A number states the initial retransmit timeout in microseconds that is doubled in every iteration. Function: `(lastTimeout) => nextTimeout`, where `lastTimeout` is zero in the first iteration. Default: `1000000`.
 
 ### Class: Server
 

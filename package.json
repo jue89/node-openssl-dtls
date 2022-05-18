@@ -1,6 +1,6 @@
 {
   "name": "openssl-dtls",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Bindings for OpenSSL DTLS1.2",
   "main": "index.js",
   "author": "Jue <me@jue.yt>",
@@ -15,10 +15,10 @@
   "license": "MIT",
   "devDependencies": {
     "happiness": "^10.0.2",
-    "jest": "^24.8.0"
+    "jest": "^27.5.1"
   },
   "dependencies": {
-    "nan": "^2.8.0"
+    "nan": "^2.15.0"
   },
   "happiness": {
     "globals": [
