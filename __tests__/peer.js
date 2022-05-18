@@ -23,7 +23,7 @@ test('create new session', () => {
 	expect(mockDTLS.Session.mock.calls[0][2]).toBe(mtu);
 	expect(s.session).toBe(mockDTLS.Session.mock.instances[0]);
 	expect(mockDTLS.Session.mock.calls[0][8](456)).toBe(123);
-	expect(getRetransmitTimeout.mock.calls[0][0]).toBe(456)
+	expect(getRetransmitTimeout.mock.calls[0][0]).toBe(456);
 });
 
 test('return rinfo', () => {
@@ -112,7 +112,6 @@ test('handle incoming packets', () => {
 	const packet = Buffer.alloc(0);
 	s._handler(packet);
 	expect(mockDTLS.Session.mock.instances[0].handler.mock.calls[0][0]).toBe(packet);
-	expect(setTimeout.mock.calls.length).toBe(0);
 });
 
 test('setup resend timer', () => {
