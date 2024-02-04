@@ -41,6 +41,14 @@ srv.close([cb]);
 
 Shuts down the server and calls `cb` once the underlying socket has been closed.
 
+#### Method: getPeer(rinfo): peer
+
+```js
+srv.getPeer({address: ..., port: ...});
+```
+
+Returns a peer by address & port.
+
 #### Event: connection
 
 ```js

@@ -48,7 +48,7 @@ class Server extends EventEmitter {
 
 		// Listen for datagrams
 		this.socket.on('message', (message, rinfo) => {
-			const key = `${rinfo.address} ${rinfo.port}`;
+			const key = this._peerKey(rinfo);
 
 			// New connection
 			if (!this.peers[key]) {
@@ -66,6 +66,15 @@ class Server extends EventEmitter {
 
 			this.peers[key]._handler(message);
 		});
+	}
+
+	_peerKey (rinfo) {
+		return `${rinfo.address} ${rinfo.port}`;
+	}
+
+	getPeer (rinfo) {
+		const key = this._peerKey(rinfo)
+		return this.peers[key]
 	}
 
 	bind () {
